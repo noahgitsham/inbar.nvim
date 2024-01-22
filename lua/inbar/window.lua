@@ -82,7 +82,7 @@ end
 M.updateBarPosition = function (winID)
 	local barID = M.winTable[winID]
 	local barConfig = vim.api.nvim_win_get_config(barID)
-	barConfig.row = 0
+	barConfig.row = vim.api.nvim_win_get_height(winID) + 1
 	barConfig.col = vim.api.nvim_win_get_width(winID) + 1
 	vim.api.nvim_win_set_config(barID, barConfig)
 end
@@ -134,12 +134,14 @@ M.createAutocommands = function()
 		group = autocommandGroup,
 		callback = function()
 			local resizedWinIDs = vim.v.event.windows
+			vim.print(resizedWinIDs)
 			for _, winID in pairs(resizedWinIDs) do
 				if M.winTable[winID] then
 					M.updateBarPosition(winID)
 					M.updateBarBorder(winID)
 				end
 			end
+			
 
 		end,
 
