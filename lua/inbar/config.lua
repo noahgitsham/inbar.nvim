@@ -2,7 +2,7 @@ local M = {}
 
 M.defaults = {
 	border = {"┬", "─", "┤", "│", "┤", "─", "╰", "│"},
-	--border = "none",
+	--border = {"", "", "", "", "", "", "", ""},
 	padding = 0,
 }
 

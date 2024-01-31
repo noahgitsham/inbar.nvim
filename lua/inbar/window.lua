@@ -1,6 +1,6 @@
 local M = {}
 
-M.winTable = {} -- Stores ID pairs: window, inbar
+M.winTable = {} -- Stores ID kv pairs: windowID, inbarID
 
 local config = require("inbar.config").options
 
@@ -8,6 +8,7 @@ local config = require("inbar.config").options
 M.createMissingBars = function ()
 	for _, winID in pairs(vim.api.nvim_list_wins()) do
 		if M.winUsesBar(winID) and not M.winTable[winID] then
+			print("ID:", winID, "Title:", vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(winID)))
 			M.createBar(winID)
 		end
 	end
@@ -15,8 +16,9 @@ end
 
 M.createBar = function(winID)
 	local bufferID = vim.api.nvim_create_buf(false, true)
+	local winName = vim.fn.expand("%") --vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(winID))
 	local barConfig = M.createBarConfig(winID)
-	vim.api.nvim_buf_set_lines(bufferID, 0, -1, false, {"Hello"})
+	vim.api.nvim_buf_set_lines(bufferID, 0, -1, false, {winName})
 	local barID = vim.api.nvim_open_win(bufferID, false, barConfig)
 	M.winTable[winID] = barID
 end
@@ -24,6 +26,18 @@ end
 M.removeBar = function(winID)
 	vim.api.nvim_win_close(M.winTable[winID], true)
 	table.remove(M.winTable, winID)
+end
+
+M.updateBarContent = function(winID, contentFunc)
+	local barID = M.winTable[winID]
+	local content = contentFunc()
+	vim.api.nvim_buf_set_lines(barID, 0, -1, false, {content})
+	M.updateBarWidth(winID, string.len(content))
+end
+
+M.updateBarWidth = function(winID, width)
+	local barConfig = vim.api.nvim_win_get_config(M.winTable[winID])
+	barConfig.width = width
 end
 
 M.winUsesBar = function(winID)
@@ -67,22 +81,27 @@ M.createBarConfig = function(winID)
 		relative  = "win",
 		win       = winID,
 		anchor    = "NE",
-		width     = 5,
+		width     = 1,
 		height    = 1,
 		focusable = false,
 		row       = -1,
-		col       = vim.api.nvim_win_get_width(0) + 1,
+		col       = vim.api.nvim_win_get_width(winID) + 1,
 		style     = "minimal",
 		border    = border,
 	}
+
+	M.updateBarContent(winID, function (winID)
+		return tostring(vim.api.nvim_buf_get_name(vim.api.nvim_win_get_buf(winID)))
+	end)
 
 	return barConfig
 end
 
 M.updateBarPosition = function (winID)
+	vim.cmd.redraw()
 	local barID = M.winTable[winID]
 	local barConfig = vim.api.nvim_win_get_config(barID)
-	barConfig.row = vim.api.nvim_win_get_height(winID) + 1
+	barConfig.row = -1
 	barConfig.col = vim.api.nvim_win_get_width(winID) + 1
 	vim.api.nvim_win_set_config(barID, barConfig)
 end
@@ -121,10 +140,11 @@ M.createAutocommands = function()
 	vim.api.nvim_create_autocmd("WinClosed", {
 		group = autocommandGroup,
 		callback = function(args)
-			--local closedWinID = tonumber(args.match) --Get ID of window to be closed. Messy, fix if api becomes less bs
-			local closedWinID = vim.api.nvim_get_current_win()
+			local closedWinID = tonumber(args.match) --Get ID of window to be closed. Messy, fix if api becomes less bs
+			--local closedWinID = vim.api.nvim_get_current_win()
 			if M.winTable[closedWinID] then
 				M.removeBar(closedWinID)
+				
 			end
 		end,
 	})
@@ -134,7 +154,6 @@ M.createAutocommands = function()
 		group = autocommandGroup,
 		callback = function()
 			local resizedWinIDs = vim.v.event.windows
-			vim.print(resizedWinIDs)
 			for _, winID in pairs(resizedWinIDs) do
 				if M.winTable[winID] then
 					M.updateBarPosition(winID)
